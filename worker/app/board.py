@@ -1,9 +1,10 @@
-"""活页上的两个固定页面（都在活页文件夹「内容工厂」里，私有，只有你能打开）：
+"""活页上的三个固定页面（都在活页文件夹「内容工厂」里，私有，只有你能打开）：
 
   「内容工厂 · 选题卡」 每天 08:00 / 18:00 发一个新版本 → 自动推到服务号
                         页面上的「确认选题」表单：选题 + 生文类型 + 文风 + 我的观点
   「内容工厂 · 改稿台」 新草稿、改稿完成、定稿、出错时发一个新版本 → 自动推到服务号
                         页面上的「改稿」表单：稿件 + 操作（待修改 / 确认 / 放弃）+ 整体意见
+  「内容工厂 · 收素材」 固定页面，不推送。在微信里看到好文章，粘贴链接提交 → 10 分钟内入素材库
 
 同一版本每人只推一次（活页自动去重）。布局和读取游标存在 kv['lp_layout']。
 """
@@ -23,14 +24,59 @@ log = logging.getLogger("board")
 FOLDER = "内容工厂"
 CARD_TITLE = "内容工厂 · 选题卡"
 DESK_TITLE = "内容工厂 · 改稿台"
-TID_RE = re.compile(r"T\d{8}-\d{2}")
-DID_RE = re.compile(r"T\d{8}-\d{2}-(?:快讯|长文|图文)(?:-\d+)?")
+INBOX_TITLE = "内容工厂 · 收素材"
+TID_RE = re.compile(r"T\d{8}-\d{2,3}")
+DID_RE = re.compile(r"T\d{8}-\d{2,3}-(?:快讯|长文|图文)(?:-\d+)?")
 ACTIONS = ["待修改", "确认", "放弃"]
+URL_RE = re.compile(r"https?://[^\s<>\"'，。、）)】]+")
+
+INBOX_MD = """# 收素材
+
+在微信里看到顺眼的文章：右上角「…」→「复制链接」，回到这里粘贴提交。
+
+- 一次一条；链接前后带着标题、评论文字也没关系，系统只取链接。
+- 公众号、网页、X 链接都行。短链（t.cn、b23.tv 这类）请先点开，复制打开后的地址。
+- 没有链接的内容（截图里的文字、群聊里的一段话），直接贴进「内容」，会按「手工转存」入库。
+- 勾「重点素材」的，写观点金句稿时会优先引用。
+
+提交后 10 分钟内入库：原文和图片备份到服务器，腾讯文档「素材文件夹/手工」里建素材文档，并登记到素材收集表。入库结果会推到「改稿台」。
+"""
+
+
+def inbox_form() -> list[dict]:
+    return [
+        {"key": "link", "label": "链接", "type": "textarea", "max": 500},
+        {"key": "text", "label": "内容（没有链接时贴这里）", "type": "textarea", "max": 500},
+        {"key": "author", "label": "发布人（可不填，抓不到时用）", "type": "text", "max": 40},
+        {"key": "key", "label": "重点素材", "type": "select", "options": ["否", "是"]},
+        {"key": "note", "label": "备注（可不填）", "type": "text", "max": 200},
+    ]
+
+
+def parse_inbox(values: dict) -> dict | None:
+    raw = str(values.get("link") or "")
+    m = URL_RE.search(raw)
+    text = str(values.get("text") or "").strip()
+    if not m and not text:
+        return None
+    return {"url": m.group(0) if m else "", "text": text, "author": str(values.get("author") or "").strip(),
+            "is_key": str(values.get("key") or "") == "是", "note": str(values.get("note") or "").strip()}
+
+
+def clean_options(options: list[str]) -> list[str]:
+    """活页选项：不能含「、」（多选分隔符，10-29 实测报 field_option_invalid），≤40 字，去重，≤50 个。"""
+    out: list[str] = []
+    for o in options:
+        o = re.sub(r"\s+", " ", str(o).replace("、", "，")).strip()[:40]
+        if o and o not in out:
+            out.append(o)
+    return out[:50]
 
 
 def card_form(options: list[str]) -> list[dict]:
     return [
-        {"key": "topic", "label": "选题", "type": "select", "required": True, "options": options or ["（暂无选题）"]},
+        {"key": "topic", "label": "选题", "type": "select", "required": True,
+         "options": clean_options(options) or ["（暂无选题）"]},
         {"key": "types", "label": "生文类型", "type": "multiselect", "required": True, "options": ["快讯", "长文", "图文"]},
         {"key": "style", "label": "文风", "type": "select", "required": True, "options": ["官方资讯", "观点金句"]},
         {"key": "opinion", "label": "我的观点（选观点金句必填）", "type": "textarea", "max": 500},
@@ -39,7 +85,8 @@ def card_form(options: list[str]) -> list[dict]:
 
 def desk_form(options: list[str]) -> list[dict]:
     return [
-        {"key": "draft", "label": "稿件", "type": "select", "required": True, "options": options or ["（暂无稿件）"]},
+        {"key": "draft", "label": "稿件", "type": "select", "required": True,
+         "options": clean_options(options) or ["（暂无稿件）"]},
         {"key": "action", "label": "操作", "type": "select", "required": True, "options": ACTIONS},
         {"key": "note", "label": "整体意见（可不填）", "type": "textarea", "max": 500},
     ]
@@ -115,8 +162,10 @@ class Board:
     def setup(self) -> dict:
         fid = self.layout.get("folder_id") or self.lp.ensure_folder(FOLDER, "选题卡与改稿台（系统自动维护）")
         self.layout["folder_id"] = fid
-        for key, title, body in (("card", CARD_TITLE, "# 选题卡\n\n每天 08:00、18:00 自动更新。\n"),
-                                 ("desk", DESK_TITLE, desk_markdown([], [], now()))):
+        pages = (("card", CARD_TITLE, "# 选题卡\n\n每天 08:00、18:00 自动更新。\n"),
+                 ("desk", DESK_TITLE, desk_markdown([], [], now())),
+                 ("inbox", INBOX_TITLE, INBOX_MD))
+        for key, title, body in pages:
             if self.layout.get(key):
                 continue
             page = self.lp.find_page(title)
@@ -125,18 +174,19 @@ class Board:
                 page = self.lp.find_page(title) or {}
             self.layout[key] = {"proposal_id": page["proposal_id"], "url": page.get("default_url")}
             self.save()
-        for key, title in (("card", CARD_TITLE), ("desk", DESK_TITLE)):
+        for key, title, _ in pages:
             if not self.layout[key].get("url"):
                 self.layout[key]["url"] = (self.lp.find_page(title) or {}).get("default_url")
         self.lp.set_form(self.layout["card"]["proposal_id"], "confirm", "确认选题", card_form([]))
         self.lp.set_form(self.layout["desk"]["proposal_id"], "revise", "改稿", desk_form([]))
+        self.lp.set_form(self.layout["inbox"]["proposal_id"], "inbox", "存进素材库", inbox_form())
         self.save()
         state = {}
         try:
             state = self.lp.notify_state()
         except Exception as e:  # noqa: BLE001
             log.warning("读推送开关失败：%s", e)
-        return {"card": self.layout["card"].get("url"), "desk": self.layout["desk"].get("url"), "notify": state}
+        return {k: self.layout[k].get("url") for k, _, _ in pages} | {"notify": state}
 
     def url(self, key: str) -> str | None:
         return (self.layout.get(key) or {}).get("url")
@@ -172,6 +222,12 @@ class Board:
 
     def read_desk(self) -> list[dict]:
         return [x for x in (parse_desk(v) for v in self._new_rows("desk", "revise")) if x]
+
+    # ---------- 收素材 ----------
+    def read_inbox(self) -> list[dict]:
+        if not self.layout.get("inbox"):
+            return []
+        return [x for x in (parse_inbox(v) for v in self._new_rows("inbox", "inbox")) if x]
 
     # ---------- 内部 ----------
     def _push(self, pid: str, publish_reply: dict) -> None:

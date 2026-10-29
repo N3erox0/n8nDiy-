@@ -98,7 +98,7 @@ def status() -> dict:
     return {"secrets": config.secrets_status(),
             "tdocs": {"space_id": layout.get("space_id"), "sheets_ok": layout.get("sheets_ok"),
                       "sheets": {k: v.get("url") for k, v in (layout.get("sheets") or {}).items()}},
-            "livepage": {k: (lp.get(k) or {}).get("url") for k in ("card", "desk")},
+            "livepage": {k: (lp.get(k) or {}).get("url") for k in ("card", "desk", "inbox")},
             "mowen_quota_today": {q["api"]: q["n"] for q in quota},
             "last_runs": {r["job"]: {"ok": r["ok"], "at": r["started_at"].isoformat(),
                                      "error": (r["error"] or "")[:200] or None} for r in runs}}

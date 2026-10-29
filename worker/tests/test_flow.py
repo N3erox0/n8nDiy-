@@ -132,6 +132,12 @@ class FakeBoard:
         out, self.desk = self.desk, []
         return out
 
+    inbox: list = []
+
+    def read_inbox(self):
+        out, self.inbox = self.inbox, []
+        return out
+
     def publish_desk(self, notices, drafts, note, quiet=False):
         self.desks.append((notices, drafts))
         return {"status": "published"}
@@ -235,6 +241,28 @@ def test_full_flow(env):
 
     # WF-07 清理不报错
     assert "versions_deleted" in jobs.job_cleanup(ctx())
+
+
+def test_inbox_from_wechat(env):
+    c, ctx, llm, mw, bd = env
+    _mat(c, "S20261029-050", "https://mp.weixin.qq.com/s/dropped1", "量子位", "qbitai", "L3", "被过滤掉的文章", "媒体")
+    c.execute("UPDATE materials SET stage='dropped', density=5 WHERE id='S20261029-050'")
+    bd.inbox = [
+        {"url": "https://mp.weixin.qq.com/s/AbCdEf123", "text": "", "author": "", "is_key": True, "note": "好文"},
+        {"url": "https://mp.weixin.qq.com/s/dropped1", "text": "", "author": "", "is_key": False, "note": ""},
+        {"url": "", "text": "群里看到：某公司明天发布新模型。", "author": "群友", "is_key": False, "note": ""},
+    ]
+    out = jobs.job_inbox(ctx())
+    assert len(out["done"]) == 3 and not out["failed"]
+    m = c.execute("SELECT * FROM materials WHERE url_norm='https://mp.weixin.qq.com/s/AbCdEf123'").fetchone()
+    assert m["stage"] == "library" and m["is_key"] and m["note"] == "好文" and m["source_type"] == "链接入表"
+    assert m["local_dir"]
+    assert c.execute("SELECT stage FROM materials WHERE id='S20261029-050'").fetchone()["stage"] == "library"
+    assert c.execute("SELECT count(*) n FROM materials WHERE source_type='手工转存'").fetchone()["n"] == 1
+    # 再交一次同一个链接：提示已在库里，不重复入库
+    bd.inbox = [{"url": "https://mp.weixin.qq.com/s/AbCdEf123", "text": "", "author": "", "is_key": False, "note": ""}]
+    assert jobs.job_inbox(ctx())["done"] == []
+    assert c.execute("SELECT count(*) n FROM notices WHERE title LIKE '已在素材库里%'").fetchone()["n"] == 1
 
 
 def test_quota_hook(env):

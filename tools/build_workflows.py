@@ -15,11 +15,11 @@ WORKFLOWS = [
         ("G2 关键词与X", "45 6,16 * * *", "collect?group=G2"),
         ("G3 媒体与公众号", "0 7,17 * * *", "collect?group=G3"),
     ]),
-    ("cfWF02manual0001", "WF-02 手工补全", False, [("每10分钟", "*/10 7-23 * * *", "manual")]),
+    ("cfWF02manual0001", "WF-02 收素材", False, [("每10分钟", "*/10 * * * *", "manual")]),
     ("cfWF03process001", "WF-03 选题加工", True, [("07:30 / 17:30", "30 7,17 * * *", "process")]),
     ("cfWF04card000001", "WF-04 选题卡（活页推送）", True, [("08:00 / 18:00", "0 8,18 * * *", "card")]),
-    ("cfWF05generate01", "WF-05 图文生成（墨问草稿）", False, [("每5分钟", "*/5 7-23 * * *", "generate")]),
-    ("cfWF06revise0001", "WF-06 改稿与定稿", False, [("每5分钟", "2-59/5 7-23 * * *", "revise")]),
+    ("cfWF05generate01", "WF-05 图文生成（墨问草稿）", False, [("每5分钟", "*/5 * * * *", "generate")]),
+    ("cfWF06revise0001", "WF-06 改稿与定稿", False, [("每5分钟", "2-59/5 * * * *", "revise")]),
     ("cfWF07cleanup001", "WF-07 清理", True, [("每天00:30", "30 0 * * *", "cleanup")]),
 ]
 

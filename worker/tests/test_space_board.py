@@ -34,6 +34,20 @@ def test_parse_confirm_and_desk():
     assert d == {"draft_id": "T20261029-02-长文-2", "action": "确认", "note": ""}
 
 
+def test_clean_options():
+    opts = board.clean_options(["T20261029-91 小红书、抖音都在做", "T20261029-91 小红书、抖音都在做", " "])
+    assert opts == ["T20261029-91 小红书，抖音都在做"]
+    f = board.card_form(["A、B"])
+    assert "、" not in "".join(f[0]["options"])
+
+
+def test_parse_inbox():
+    v = board.parse_inbox({"link": "看这篇 https://mp.weixin.qq.com/s/AbC-d_1 ，写得好", "key": "是"})
+    assert v["url"] == "https://mp.weixin.qq.com/s/AbC-d_1" and v["is_key"]
+    assert board.parse_inbox({"link": "没有链接", "text": ""}) is None
+    assert board.parse_inbox({"text": "一段话"})["url"] == ""
+
+
 def test_row_helpers():
     assert row_values({"row_id": "r1", "values": {"topic": "x"}}) == {"topic": "x"}
     assert row_values({"row_id": "r1", "topic": "x", "status": "approved"}) == {"topic": "x"}

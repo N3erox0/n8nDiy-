@@ -103,6 +103,8 @@ def card_markdown(when: datetime, topics: list[dict], others: int, stats_line: s
         tag = t.get("origin", "热点")
         if tag == "日历" and t.get("event_date"):
             tag = f"日历·{t['event_date']}"
+        if (t.get("official") or {}).get("media_only"):
+            tag += "·媒体信源"
         lines.append(f"## + topic{i}　{t['title']}　〔{t.get('grade') or 'B'}｜{tag}〕")
         lines.append("")
         lines.append(f"选题ID：{t['id']}")
@@ -138,7 +140,7 @@ def card_markdown(when: datetime, topics: list[dict], others: int, stats_line: s
 
 CONFIRM_RE = re.compile(r"【\s*确认\s*[｜|]\s*([^｜|】]+?)\s*(?:[｜|]\s*(官方资讯|观点金句)\s*)?"
                         r"(?:[｜|]\s*我的观点\s*[:：]\s*([^】]*))?】")
-TID_RE = re.compile(r"T\d{8}-\d{2}")
+TID_RE = re.compile(r"T\d{8}-\d{2,3}")
 TYPES = ("快讯", "长文", "图文")
 
 

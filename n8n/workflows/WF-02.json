@@ -1,6 +1,6 @@
 {
   "id": "cfWF02manual0001",
-  "name": "WF-02 手工补全",
+  "name": "WF-02 收素材",
   "active": false,
   "nodes": [
     {
@@ -17,7 +17,7 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "*/10 7-23 * * *"
+              "expression": "*/10 * * * *"
             }
           ]
         }

@@ -307,11 +307,12 @@ def job_process(ctx: Ctx) -> dict:
     new_topics: list[dict] = []
     clues = 0
     for g, heat in zip(groups, heats):
+        # 有一手信源（官网/官方账号）的以它为主素材；没有的也出题，但标「媒体信源」、最高 B 级、不存官方原件
         fh = [m for m in g if is_first_hand(m, srcs, hosts, handles)]
-        if not fh:
+        media_only = not fh
+        if media_only:
             clues += 1
-            continue
-        primary = max(fh, key=lambda m: (m["density"] or 0))
+        primary = max(fh or g, key=lambda m: (m["density"] or 0))
         others = sorted([m for m in g if m is not primary], key=lambda m: -(m["density"] or 0))
         ck = primary.get("event_key") or primary.get("title") or ""
         try:
@@ -326,13 +327,17 @@ def job_process(ctx: Ctx) -> dict:
         latest = max((m["published_at"] for m in g if m["published_at"]), default=None)
         dens = max(m["density"] or 0 for m in g)
         sc = topics.topic_score(dens, heat, topics.timeliness(latest, at), mode)
+        grade = topics.grade(sc)
+        if media_only and grade == "A":
+            grade = "B"
         t = {"title": title, "reasons": [short(r, 40) for r in (tt.get("reasons") or [])][:2],
              "material_ids": [m["id"] for m in [primary] + others], "cluster_key": ck,
              "links": [topics.link_entry(m) for m in [primary] + others[:2]], "score": sc,
-             "grade": topics.grade(sc), "origin": "热点", "primary": primary}
+             "grade": grade, "origin": "热点", "primary": None if media_only else primary,
+             "media_only": media_only}
         new_topics.append(t)
         recent.append({"title": title, "cluster_key": ck})
-    summary["clues_without_first_hand"] = clues
+    summary["media_only_topics"] = clues
 
     # 4. 指定选题 + 日历选题
     designated = sync_designated(ctx)
@@ -350,7 +355,11 @@ def job_process(ctx: Ctx) -> dict:
             c.execute("UPDATE materials SET topic_id=%s WHERE id = ANY(%s) AND topic_id IS NULL",
                       (tid, t["material_ids"]))
         t["id"] = tid
-        save_official(ctx, t)
+        if t.get("media_only"):
+            c.execute("UPDATE topics SET official=%s, note=%s WHERE id=%s",
+                      (db.J({"media_only": True}), "媒体信源，无官方一手来源", tid))
+        else:
+            save_official(ctx, t)
         rid = ctx.sheet_add("选题登记", topic_row(c, tid))
         if rid:
             c.execute("UPDATE topics SET sheet_record_id=%s WHERE id=%s", (rid, tid))
@@ -879,11 +888,58 @@ def do_abandon(ctx: Ctx, d: dict) -> str:
 
 # ====================================================================== WF-02 手工补全
 
-def job_manual(ctx: Ctx) -> dict:
-    if not ctx.space.sheets_ok:
-        return {"skipped": "素材收集表未初始化"}
+def job_inbox(ctx: Ctx) -> dict:
+    """活页「收素材」页面的提交：链接 → 链接入表；只有内容 → 手工转存。结果推到改稿台。"""
+    if not ctx.board.ready:
+        return {}
     c = ctx.c
     done, failed = [], []
+    for s in safe(ctx.board.read_inbox) or []:
+        v = {"原文链接": s["url"], "发布人": s["author"], "备注": s["text"], "标题": ""}
+        mid = db.next_id(c, "S" + ymd(ctx.at), 3, "materials")
+        label = short(s["url"] or s["text"], 30)
+        ex = None
+        if s["url"] and (u := normalize_url(s["url"])):
+            ex = c.execute("SELECT * FROM materials WHERE url_norm=%s", (u,)).fetchone()
+        if ex and ex["stage"] == "library":
+            notify.add(c, "素材", f"已在素材库里：{short(ex['title'], 26)}（{ex['id']}）", ex.get("doc_url") or ex["url"])
+            continue
+        try:
+            if ex:  # 订阅采到过但没过线：你点名要的，直接入库
+                c.execute("UPDATE materials SET stage='library', source_type='链接入表' WHERE id=%s", (ex["id"],))
+                m = c.execute("SELECT * FROM materials WHERE id=%s", (ex["id"],)).fetchone()
+                if m["density"] is None and (res := score_batch(ctx.llm, [m])).get(m["id"]):
+                    apply_score(c, m, res[m["id"]])
+            else:
+                m = _manual_link(ctx, mid, v) if s["url"] else _manual_text(ctx, mid, v)
+        except Exception as e:  # noqa: BLE001
+            m = f"抓取失败：{type(e).__name__}"
+        if isinstance(m, str):
+            failed.append(label)
+            if m.startswith("缺发布时间") and ctx.space.sheets_ok:
+                ctx.sheet_add("素材收集", {"原文链接": s["url"], "来源类型": "链接入表", "状态": "待补全",
+                                         "发布人": s["author"], "重点素材": s["is_key"],
+                                         "备注": "抓不到发布时间：填上「发布时间」（YYYY-MM-DD HH:MM），状态改回「待补全」"})
+                m = "抓不到发布时间，已放进素材收集表，补上时间即可"
+            notify.add(c, "提示", f"素材没存上：{m[:34]}｜{label}", ctx.space.sheet_url("素材收集") or s["url"] or None)
+            continue
+        c.execute("UPDATE materials SET is_key=%s, note=%s WHERE id=%s",
+                  (s["is_key"] or bool(m.get("quotes")), s["note"] or None, m["id"]))
+        m = c.execute("SELECT * FROM materials WHERE id=%s", (m["id"],)).fetchone()
+        store_library(ctx, [m], "素材文件夹/手工")
+        m = c.execute("SELECT * FROM materials WHERE id=%s", (m["id"],)).fetchone()
+        done.append(m["id"])
+        notify.add(c, "素材", f"已入素材库：{short(m['title'], 26)}（密度 {m['density'] or 0:g}）",
+                   m.get("doc_url") or m.get("url"))
+    return {"done": done, "failed": failed}
+
+
+def job_manual(ctx: Ctx) -> dict:
+    c = ctx.c
+    done, failed = [], []
+    inbox = job_inbox(ctx)
+    if not ctx.space.sheets_ok:
+        return {"inbox": inbox, "skipped": "素材收集表未初始化"}
     for r in safe(ctx.space.list_records, "素材收集") or []:
         v = r["values"]
         if first(v.get("状态")) != "待补全":
@@ -911,7 +967,7 @@ def job_manual(ctx: Ctx) -> dict:
         row["来源类型"] = kind
         ctx.sheet_update("素材收集", r["record_id"], row)
         done.append(m["id"])
-    return {"done": done, "failed": len(failed)}
+    return {"inbox": inbox, "done": done, "failed": len(failed)}
 
 
 def _manual_link(ctx: Ctx, mid: str, v: dict) -> dict | str:
