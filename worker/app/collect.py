@@ -1,6 +1,7 @@
 """WF-01 分组采集：拉取订阅源 → 四必填 → 规范化 → 时间窗 → 去重 → 暂存；每个源写一行采集统计。"""
 from __future__ import annotations
 
+import json
 import re
 import time
 from calendar import timegm
@@ -97,6 +98,8 @@ def fetch_source(src: dict, client: httpx.Client, deadline: float) -> SourceResu
             res.items = _x_items(client, src)
         elif m == "kw_bing":
             res.items = _bing(client, src["query"])
+        elif m == "kw_gnews":
+            res.items = _gnews(client, src["query"], deadline)
         elif m == "kw_hn":
             res.items = parse_feed(_get(client, "https://hnrss.org/newest?q=" + quote(src["query"]) + "&points=30"))
         elif m == "page":
@@ -159,6 +162,47 @@ def _bing(client: httpx.Client, q: str) -> list[Item]:
         host = urlsplit(it.url).netloc.lower().removeprefix("www.")
         it.author = host  # 搜索结果没有作者，用站点域名
         out.append(it)
+    return out
+
+
+def _gnews_decode(client: httpx.Client, link: str) -> str | None:
+    """Google News 跳转链接 → 原文链接（10-29 实测可用：页面签名 + batchexecute）。"""
+    try:
+        aid = link.split("/articles/")[1].split("?")[0]
+        html = client.get(f"https://news.google.com/rss/articles/{aid}").text
+        sig = re.search(r'data-n-a-sg="([^"]+)"', html)
+        ts = re.search(r'data-n-a-ts="([^"]+)"', html)
+        if not (sig and ts):
+            return None
+        inner = ["garturlreq", [["X", "X", ["X", "X"], None, None, 1, 1, "US:en", None, 1, None, None, None, None,
+                                None, 0, 1], "X", "X", 1, [1, 1, 1], 1, 1, None, 0, 0, None, 0],
+                 aid, int(ts.group(1)), sig.group(1)]
+        r = client.post("https://news.google.com/_/DotsSplashUi/data/batchexecute",
+                        data={"f.req": json.dumps([[["Fbv4je", json.dumps(inner), None, "generic"]]])},
+                        headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"})
+        body = r.text.split("\n\n", 1)[1] if "\n\n" in r.text else r.text
+        url = json.loads(json.loads(body)[0][2])[1]
+        return url if isinstance(url, str) and url.startswith("http") else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _gnews(client: httpx.Client, q: str, deadline: float, max_items: int = 12) -> list[Item]:
+    loc = ("hl=zh-CN&gl=CN&ceid=CN:zh-Hans" if re.search(r"[\u4e00-\u9fff]", q) else "hl=en-US&gl=US&ceid=US:en")
+    url = "https://news.google.com/rss/search?q=" + quote(q) + "+when:1d&" + loc
+    f = feedparser.parse(_get(client, url))
+    out = []
+    for e in f.entries[:max_items]:
+        if time.monotonic() > deadline:
+            break
+        real = _gnews_decode(client, e.get("link") or "")
+        if not real:
+            continue
+        t, _ = _entry_time(e)
+        src = e.get("source") or {}
+        title = re.sub(r"\s+-\s+[^-]+$", "", (e.get("title") or "").strip())  # 去掉标题末尾的「 - 媒体名」
+        out.append(Item(url=real, title=title, summary=_clean(e.get("summary")),
+                        author=(src.get("title") or urlsplit(real).netloc).strip(), published_at=t))
     return out
 
 

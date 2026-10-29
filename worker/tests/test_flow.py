@@ -242,3 +242,25 @@ def test_quota_hook(env):
     hook = jobs.quota_hook(c)
     assert all(hook("note/create", 3) for _ in range(3))
     assert hook("note/create", 3) is False
+
+
+def test_revise_waits_when_mowen_quota_out(env):
+    from app.clients.mowen import MowenError
+    c, ctx, llm, mw, bd = env
+    nid = mw.create(md_to_atom("# 标题\n\n正文。\n"))
+    c.execute("""INSERT INTO topics(id,title,status) VALUES('T20261029-07','测试','已出稿')""")
+    c.execute("""INSERT INTO drafts(id,topic_id,dtype,title,mowen_note_id,mowen_url,status)
+                 VALUES('T20261029-07-快讯','T20261029-07','快讯','标题',%s,'u','待确认')""", (nid,))
+    c.execute("""INSERT INTO draft_versions(draft_id,version,label,md,appendix_md) VALUES
+                 ('T20261029-07-快讯',1,'草稿1','# 标题\n\n正文。','')""")
+    real_info = mw.info
+    mw.info = lambda *a, **k: (_ for _ in ()).throw(MowenError("QUOTA", "api=NoteInfo"))
+    bd.desk = [{"draft_id": "T20261029-07-快讯", "action": "确认", "note": ""}]
+    out = jobs.job_revise(ctx())
+    assert "明天自动处理" in out["T20261029-07-快讯"]
+    assert c.execute("SELECT status FROM drafts WHERE id='T20261029-07-快讯'").fetchone()["status"] == "待确认"
+    assert jobs.job_revise(ctx())["T20261029-07-快讯"].startswith("墨问额度")  # 没有新信号也会重试
+    assert c.execute("SELECT count(*) n FROM notices WHERE title LIKE '%明天自动处理%'").fetchone()["n"] == 1
+    mw.info = real_info  # 第二天额度恢复
+    assert jobs.job_revise(ctx())["T20261029-07-快讯"] == "已定稿"
+    assert jobs.job_revise(ctx()) == {}

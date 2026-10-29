@@ -711,13 +711,16 @@ def collect_signals(ctx: Ctx) -> dict[str, dict]:
 
 
 def job_revise(ctx: Ctx) -> dict:
+    """墨问额度用完时，信号存进 kv['revise_pending']，第二天额度恢复后自动接着处理，不用你重点。"""
     c = ctx.c
-    sig = collect_signals(ctx)
+    pending: dict[str, dict] = db.kv_get(c, "revise_pending", {}) or {}
+    sig = {**pending, **collect_signals(ctx)}
     if not sig:
         return {}
     active = {d["id"]: d for d in c.execute(
         "SELECT * FROM drafts WHERE status IN ('待确认','待修改') AND id = ANY(%s)", (list(sig),)).fetchall()}
     out: dict[str, str] = {}
+    keep: dict[str, dict] = {}
     for did, s in sig.items():
         d = active.get(did)
         if not d:
@@ -730,18 +733,26 @@ def job_revise(ctx: Ctx) -> dict:
             elif s["action"] == "放弃":
                 out[did] = do_abandon(ctx, d)
         except MowenError as e:
-            ctx.mowen_failed(e)
+            c.execute("UPDATE drafts SET status=%s WHERE id=%s AND status='修改中'", (d["status"], did))
+            if e.reason == "QUOTA":
+                keep[did] = s
+                out[did] = "墨问额度用完，明天自动处理"
+                if did not in pending:
+                    notify.add(c, "提示", f"{short(d['title'], 16)}「{s['action']}」已收到，墨问今天额度用完，明天自动处理",
+                               d["mowen_url"])
+                continue
             out[did] = f"墨问失败：{e}"
             _set_draft(ctx, did, status="待确认", note=f"墨问失败：{e.reason}")
-            hint = "额度用完，明天再提交一次" if e.reason == "QUOTA" else e.reason
-            notify.add(c, "错误", f"{short(d['title'], 16)}「{s['action']}」没处理：墨问{hint}", d["mowen_url"])
+            notify.add(c, "错误", f"{short(d['title'], 16)}「{s['action']}」没处理：墨问 {e.reason}", d["mowen_url"])
         except Exception as e:  # noqa: BLE001
             log.exception("改稿失败")
             out[did] = f"失败：{type(e).__name__}"
             _set_draft(ctx, did, status="待确认", note=f"处理失败：{e}"[:200])
             notify.add(c, "错误", f"{short(d['title'], 16)}「{s['action']}」处理失败：{type(e).__name__}", d["mowen_url"])
+    if keep != pending:
+        db.kv_set(c, "revise_pending", keep)
     # 改稿台表单的稿件选项跟着刷新
-    if out and ctx.board.ready:
+    if any(not v.startswith("墨问额度") for v in out.values()) and ctx.board.ready:
         safe(ctx.board.update_desk_form, notify.active_drafts(c))
     return out
 

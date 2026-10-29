@@ -3,7 +3,8 @@
 #   rss        直接读 RSS/Atom
 #   rsshub     走本机 RSSHub 路由（route）
 #   x          不登录 X：Bing 网页搜索 site:x.com/<handle>，帖子时间用 ID 换算
-#   kw_bing    关键词：Bing 网页搜索 RSS
+#   kw_bing    关键词：Bing 网页搜索 RSS（本机结果大多没有发布时间，已不用）
+#   kw_gnews   关键词：Google News RSS（带发布时间，跳转链接自动还原成原文链接）
 #   kw_hn      关键词：hnrss.org 搜索
 #   wechat2rss Wechat2RSS 免费清单
 #   page       没有 RSS 的官网列表页：按 link_pattern 找文章链接，逐篇抓时间
@@ -80,15 +81,15 @@ sources:
   - {id: x-oran-ge, name: "@oran_ge", group: G2, layer: L2, official: true, method: x, handle: oran_ge}
 
   # ---------------- 附录 B 关键词 ----------------
-  - {id: kw-cn-1, name: "关键词：大模型 开源 发布", group: G2, layer: KW, method: kw_bing, query: "大模型 开源 发布"}
-  - {id: kw-cn-2, name: "关键词：Agent 智能体 AI编程", group: G2, layer: KW, method: kw_bing, query: "Agent 智能体 AI编程"}
-  - {id: kw-cn-3, name: "关键词：多模态 文生视频 具身智能 端侧推理", group: G2, layer: KW, method: kw_bing, query: "多模态 文生视频 具身智能"}
-  - {id: kw-cn-4, name: "关键词：芯片 算力 融资 国产大模型", group: G2, layer: KW, method: kw_bing, query: "国产大模型 算力 融资"}
+  - {id: kw-cn-1, name: "关键词：大模型 开源 发布", group: G2, layer: KW, method: kw_gnews, query: "大模型 开源 发布"}
+  - {id: kw-cn-2, name: "关键词：Agent 智能体 AI编程", group: G2, layer: KW, method: kw_gnews, query: "Agent 智能体 AI编程"}
+  - {id: kw-cn-3, name: "关键词：多模态 文生视频 具身智能 端侧推理", group: G2, layer: KW, method: kw_gnews, query: "多模态 文生视频 具身智能"}
+  - {id: kw-cn-4, name: "关键词：芯片 算力 融资 国产大模型", group: G2, layer: KW, method: kw_gnews, query: "国产大模型 算力 融资"}
   - {id: kw-en-1, name: "关键词：OpenAI/Anthropic/Gemini/Meta AI/Grok", group: G2, layer: KW, method: kw_hn, query: "OpenAI OR Anthropic OR Gemini OR Grok"}
   - {id: kw-en-2, name: "关键词：LLM model release benchmark", group: G2, layer: KW, method: kw_hn, query: "LLM release OR benchmark"}
   - {id: kw-en-3, name: "关键词：AI agent agentic", group: G2, layer: KW, method: kw_hn, query: "AI agent OR agentic"}
   - {id: kw-en-4, name: "关键词：DeepSeek Kimi Qwen", group: G2, layer: KW, method: kw_hn, query: "DeepSeek OR Kimi OR Qwen"}
-  - {id: kw-en-5, name: "关键词：AI launch", group: G2, layer: KW, method: kw_bing, query: "AI launch announces model"}
+  - {id: kw-en-5, name: "关键词：AI launch", group: G2, layer: KW, method: kw_gnews, query: "AI launch announces model"}
 
   # ---------------- L3 媒体（优先官网 RSS）----------------
   - {id: qbitai, name: 量子位, group: G3, layer: L3, method: rss, url: "https://www.qbitai.com/feed", alt: {method: wechat2rss, url: "https://wechat2rss.xlab.app/feed/7131b577c61365cb47e81000738c10d872685908.xml"}}
