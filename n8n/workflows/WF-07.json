@@ -1,0 +1,78 @@
+{
+  "id": "cfWF07cleanup001",
+  "name": "WF-07 清理",
+  "active": false,
+  "nodes": [
+    {
+      "id": "cfWF07cleanup001-t0",
+      "name": "定时 每天00:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 0 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cfWF07cleanup001-h0",
+      "name": "调用 worker 每天00:30",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "parameters": {
+        "method": "POST",
+        "url": "http://worker:8000/jobs/cleanup",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Worker-Token",
+              "value": "={{ $env.WORKER_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "定时 每天00:30": {
+      "main": [
+        [
+          {
+            "node": "调用 worker 每天00:30",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}

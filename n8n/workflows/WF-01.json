@@ -1,0 +1,198 @@
+{
+  "id": "cfWF01collect001",
+  "name": "WF-01 分组采集",
+  "active": false,
+  "nodes": [
+    {
+      "id": "cfWF01collect001-t0",
+      "name": "定时 G1 官方与英文",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 6,16 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cfWF01collect001-h0",
+      "name": "调用 worker G1 官方与英文",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "parameters": {
+        "method": "POST",
+        "url": "http://worker:8000/jobs/collect?group=G1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Worker-Token",
+              "value": "={{ $env.WORKER_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "cfWF01collect001-t1",
+      "name": "定时 G2 关键词与X",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        400
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "45 6,16 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cfWF01collect001-h1",
+      "name": "调用 worker G2 关键词与X",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "parameters": {
+        "method": "POST",
+        "url": "http://worker:8000/jobs/collect?group=G2",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Worker-Token",
+              "value": "={{ $env.WORKER_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "cfWF01collect001-t2",
+      "name": "定时 G3 媒体与公众号",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        600
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7,17 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cfWF01collect001-h2",
+      "name": "调用 worker G3 媒体与公众号",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        600
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "parameters": {
+        "method": "POST",
+        "url": "http://worker:8000/jobs/collect?group=G3",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Worker-Token",
+              "value": "={{ $env.WORKER_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "定时 G1 官方与英文": {
+      "main": [
+        [
+          {
+            "node": "调用 worker G1 官方与英文",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "定时 G2 关键词与X": {
+      "main": [
+        [
+          {
+            "node": "调用 worker G2 关键词与X",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "定时 G3 媒体与公众号": {
+      "main": [
+        [
+          {
+            "node": "调用 worker G3 媒体与公众号",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}

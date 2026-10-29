@@ -1,0 +1,132 @@
+# 订阅源（方案附录 A / B）。改这里不用重启，下一场采集自动生效。
+# method:
+#   rss        直接读 RSS/Atom
+#   rsshub     走本机 RSSHub 路由（route）
+#   x          不登录 X：Bing 网页搜索 site:x.com/<handle>，帖子时间用 ID 换算
+#   kw_bing    关键词：Bing 网页搜索 RSS
+#   kw_hn      关键词：hnrss.org 搜索
+#   wechat2rss Wechat2RSS 免费清单
+#   page       没有 RSS 的官网列表页：按 link_pattern 找文章链接，逐篇抓时间
+#   none       暂无订阅方式（只计入失败统计，阶段 2 补）
+# official: true 表示一手信源（官网、官方账号、当事人）
+
+exclude_words: [网络安全, 漏洞, 攻击, 合规, 监管, 立法, 隐私]
+
+groups:
+  G1: {name: 官方与英文, early: "06:30", late: "16:30", timeout_min: 15}
+  G2: {name: 关键词与X, early: "06:45", late: "16:45", timeout_min: 15}
+  G3: {name: 媒体与公众号, early: "07:00", late: "17:00", timeout_min: 15}
+
+sources:
+  # ---------------- L1 官方 ----------------
+  - {id: openai, name: OpenAI, group: G1, layer: L1, official: true, method: rss, url: "https://openai.com/news/rss.xml", author: OpenAI}
+  - {id: google-ai, name: Google AI, group: G1, layer: L1, official: true, method: rss, url: "https://blog.google/technology/ai/rss/", author: Google}
+  - {id: deepmind, name: Google DeepMind, group: G1, layer: L1, official: true, method: rss, url: "https://deepmind.google/blog/rss.xml", author: Google DeepMind}
+  - {id: anthropic, name: Anthropic, group: G1, layer: L1, official: true, method: page, url: "https://www.anthropic.com/news", link_pattern: "^https://www\\.anthropic\\.com/news/[a-z0-9-]+$", author: Anthropic}
+  - {id: meta-ai, name: Meta AI, group: G1, layer: L1, official: true, method: page, url: "https://ai.meta.com/blog/", link_pattern: "^https://ai\\.meta\\.com/blog/[a-z0-9-]+/?$", author: Meta AI}
+  - {id: xai, name: xAI, group: G1, layer: L1, official: true, method: page, url: "https://x.ai/news", link_pattern: "^https://x\\.ai/news/[a-z0-9-]+$", author: xAI}
+  - {id: nvidia, name: NVIDIA Blog, group: G1, layer: L1, official: true, method: rss, url: "https://blogs.nvidia.com/feed/", author: NVIDIA}
+  - {id: deepseek, name: DeepSeek, group: G1, layer: L1, official: true, method: page, url: "https://api-docs.deepseek.com/zh-cn/", link_pattern: "^https://api-docs\\.deepseek\\.com/zh-cn/news/news\\d+$", author: DeepSeek}
+  - {id: kimi, name: 月之暗面 Kimi, group: G1, layer: L1, official: true, method: page, url: "https://platform.moonshot.cn/blog", link_pattern: "^https://platform\\.moonshot\\.cn/blog/posts/[a-z0-9-]+$", author: 月之暗面}
+  - {id: qwen, name: 阿里通义 Qwen, group: G1, layer: L1, official: true, method: rss, url: "https://qwenlm.github.io/blog/index.xml", author: Qwen}
+  - {id: seed, name: 字节 Seed / 豆包, group: G1, layer: L1, official: true, method: page, url: "https://seed.bytedance.com/zh/blog", link_pattern: "^https://seed\\.bytedance\\.com/zh/blog/[^/?#]+$", author: 字节跳动 Seed}
+  - {id: zhipu, name: 智谱, group: G1, layer: L1, official: true, method: page, url: "https://www.zhipuai.cn/news", link_pattern: "^https://www\\.zhipuai\\.cn/news/\\d+$", author: 智谱}
+  - {id: minimax, name: MiniMax, group: G1, layer: L1, official: true, method: page, url: "https://www.minimaxi.com/news", link_pattern: "^https://www\\.minimaxi\\.com/news/[^/?#]+$", author: MiniMax}
+
+  # ---------------- L5 英文 ----------------
+  - {id: techcrunch-ai, name: TechCrunch AI, group: G1, layer: L5, method: rss, url: "https://techcrunch.com/category/artificial-intelligence/feed/"}
+  - {id: verge-ai, name: The Verge AI, group: G1, layer: L5, method: rss, url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"}
+  - {id: hn, name: Hacker News, group: G1, layer: L5, method: rss, url: "https://hnrss.org/newest?q=AI+OR+LLM+OR+OpenAI+OR+Anthropic&points=80"}
+  - {id: hf-blog, name: Hugging Face Blog, group: G1, layer: L5, official: true, method: rss, url: "https://huggingface.co/blog/feed.xml", author: Hugging Face}
+  - {id: hf-papers, name: Hugging Face Papers, group: G1, layer: L5, method: rsshub, route: "/huggingface/daily-papers"}
+
+  # ---------------- L6 博客 ----------------
+  - {id: ruanyf, name: 阮一峰的网络日志, group: G1, layer: L6, method: rss, url: "https://www.ruanyifeng.com/blog/atom.xml", author: 阮一峰}
+  - {id: lanxi, name: 阑夕（微博）, group: G1, layer: L6, method: none, note: 微博需登录，待核实}
+
+  # ---------------- L2 X（不登录，Bing 间接获取）----------------
+  - {id: x-openai, name: "@OpenAI", group: G2, layer: L2, official: true, method: x, handle: OpenAI}
+  - {id: x-anthropic, name: "@AnthropicAI", group: G2, layer: L2, official: true, method: x, handle: AnthropicAI}
+  - {id: x-deepmind, name: "@GoogleDeepMind", group: G2, layer: L2, official: true, method: x, handle: GoogleDeepMind}
+  - {id: x-meta, name: "@AIatMeta", group: G2, layer: L2, official: true, method: x, handle: AIatMeta}
+  - {id: x-xai, name: "@xai", group: G2, layer: L2, official: true, method: x, handle: xai}
+  - {id: x-mistral, name: "@MistralAI", group: G2, layer: L2, official: true, method: x, handle: MistralAI}
+  - {id: x-hf, name: "@huggingface", group: G2, layer: L2, official: true, method: x, handle: huggingface}
+  - {id: x-nvidia, name: "@NVIDIAAI", group: G2, layer: L2, official: true, method: x, handle: NVIDIAAI}
+  - {id: x-deepseek, name: "@deepseek_ai", group: G2, layer: L2, official: true, method: x, handle: deepseek_ai}
+  - {id: x-qwen, name: "@Alibaba_Qwen", group: G2, layer: L2, official: true, method: x, handle: Alibaba_Qwen}
+  - {id: x-kimi, name: "@Kimi_Moonshot", group: G2, layer: L2, official: true, method: x, handle: Kimi_Moonshot}
+  - {id: x-zai, name: "@Zai_org", group: G2, layer: L2, official: true, method: x, handle: Zai_org}
+  - {id: x-minimax, name: "@MiniMax_AI", group: G2, layer: L2, official: true, method: x, handle: MiniMax_AI, alt_handle: MiniMax__AI}
+  - {id: x-hunyuan, name: "@TencentHunyuan", group: G2, layer: L2, official: true, method: x, handle: TencentHunyuan}
+  - {id: x-stepfun, name: "@StepFun_ai", group: G2, layer: L2, official: true, method: x, handle: StepFun_ai}
+  - {id: x-cursor, name: "@cursor_ai", group: G2, layer: L2, official: true, method: x, handle: cursor_ai}
+  - {id: x-manus, name: "@ManusAI", group: G2, layer: L2, official: true, method: x, handle: ManusAI}
+  - {id: x-perplexity, name: "@perplexity_ai", group: G2, layer: L2, official: true, method: x, handle: perplexity_ai}
+  - {id: x-langchain, name: "@LangChainAI", group: G2, layer: L2, official: true, method: x, handle: LangChainAI}
+  - {id: x-llamaindex, name: "@llama_index", group: G2, layer: L2, official: true, method: x, handle: llama_index}
+  - {id: x-crewai, name: "@crewAIInc", group: G2, layer: L2, official: true, method: x, handle: crewAIInc}
+  - {id: x-karpathy, name: "@karpathy", group: G2, layer: L2, official: true, method: x, handle: karpathy}
+  - {id: x-sama, name: "@sama", group: G2, layer: L2, official: true, method: x, handle: sama}
+  - {id: x-drjimfan, name: "@DrJimFan", group: G2, layer: L2, official: true, method: x, handle: DrJimFan}
+  - {id: x-simonw, name: "@simonw", group: G2, layer: L2, official: true, method: x, handle: simonw}
+  - {id: x-dotey, name: "@dotey", group: G2, layer: L2, official: true, method: x, handle: dotey}
+  - {id: x-op7418, name: "@op7418", group: G2, layer: L2, official: true, method: x, handle: op7418}
+  - {id: x-ylecun, name: "@ylecun", group: G2, layer: L2, official: true, method: x, handle: ylecun}
+  - {id: x-swyx, name: "@swyx", group: G2, layer: L2, official: true, method: x, handle: swyx}
+  - {id: x-xiaohu, name: "@xiaohu", group: G2, layer: L2, official: true, method: x, handle: xiaohu}
+  - {id: x-emollick, name: "@emollick", group: G2, layer: L2, official: true, method: x, handle: emollick}
+  - {id: x-vista8, name: "@vista8", group: G2, layer: L2, official: true, method: x, handle: vista8}
+  - {id: x-oran-ge, name: "@oran_ge", group: G2, layer: L2, official: true, method: x, handle: oran_ge}
+
+  # ---------------- 附录 B 关键词 ----------------
+  - {id: kw-cn-1, name: "关键词：大模型 开源 发布", group: G2, layer: KW, method: kw_bing, query: "大模型 开源 发布"}
+  - {id: kw-cn-2, name: "关键词：Agent 智能体 AI编程", group: G2, layer: KW, method: kw_bing, query: "Agent 智能体 AI编程"}
+  - {id: kw-cn-3, name: "关键词：多模态 文生视频 具身智能 端侧推理", group: G2, layer: KW, method: kw_bing, query: "多模态 文生视频 具身智能"}
+  - {id: kw-cn-4, name: "关键词：芯片 算力 融资 国产大模型", group: G2, layer: KW, method: kw_bing, query: "国产大模型 算力 融资"}
+  - {id: kw-en-1, name: "关键词：OpenAI/Anthropic/Gemini/Meta AI/Grok", group: G2, layer: KW, method: kw_hn, query: "OpenAI OR Anthropic OR Gemini OR Grok"}
+  - {id: kw-en-2, name: "关键词：LLM model release benchmark", group: G2, layer: KW, method: kw_hn, query: "LLM release OR benchmark"}
+  - {id: kw-en-3, name: "关键词：AI agent agentic", group: G2, layer: KW, method: kw_hn, query: "AI agent OR agentic"}
+  - {id: kw-en-4, name: "关键词：DeepSeek Kimi Qwen", group: G2, layer: KW, method: kw_hn, query: "DeepSeek OR Kimi OR Qwen"}
+  - {id: kw-en-5, name: "关键词：AI launch", group: G2, layer: KW, method: kw_bing, query: "AI launch announces model"}
+
+  # ---------------- L3 媒体（优先官网 RSS）----------------
+  - {id: qbitai, name: 量子位, group: G3, layer: L3, method: rss, url: "https://www.qbitai.com/feed", alt: {method: wechat2rss, url: "https://wechat2rss.xlab.app/feed/7131b577c61365cb47e81000738c10d872685908.xml"}}
+  - {id: jiqizhixin, name: 机器之心, group: G3, layer: L3, method: wechat2rss, url: "https://wechat2rss.xlab.app/feed/51e92aad2728acdd1fda7314be32b16639353001.xml"}
+  - {id: geekpark, name: 极客公园, group: G3, layer: L3, method: rss, url: "https://www.geekpark.net/rss", alt: {method: wechat2rss, url: "https://wechat2rss.xlab.app/feed/1a5aec98e71c707c8ca092bc2c255b9d4bac477d.xml"}}
+  - {id: infoq, name: InfoQ 中文, group: G3, layer: L3, method: rss, url: "https://www.infoq.cn/feed"}
+  - {id: zhidx, name: 智东西, group: G3, layer: L3, method: rss, url: "https://zhidx.com/feed"}
+  - {id: leiphone-ai, name: AI科技评论（雷锋网）, group: G3, layer: L3, method: rss, url: "https://www.leiphone.com/feed/categoryRss/name/ai"}
+  - {id: jazzyear, name: 甲子光年, group: G3, layer: L3, method: none, note: 未找到 RSS，Wechat2RSS 未收录}
+  - {id: 36kr, name: 36氪, group: G3, layer: L3, method: rss, url: "https://36kr.com/feed"}
+  - {id: huxiu, name: 虎嗅, group: G3, layer: L3, method: rss, url: "https://www.huxiu.com/rss/0.xml"}
+  - {id: deeptech, name: DeepTech深科技, group: G3, layer: L3, method: none, note: 未找到 RSS，Wechat2RSS 未收录}
+  - {id: paperweekly, name: PaperWeekly, group: G3, layer: L3, method: wechat2rss, url: "https://wechat2rss.xlab.app/feed/3be891c2f4e526629ab055a297cc2cd6c1f0a563.xml"}
+  - {id: ifanr, name: APPSO（爱范儿）, group: G3, layer: L3, method: rss, url: "https://www.ifanr.com/feed"}
+  - {id: cls, name: 财联社, group: G3, layer: L3, method: rsshub, route: "/cls/telegraph"}
+  - {id: uisdc, name: 优设, group: G3, layer: L3, method: rss, url: "https://www.uisdc.com/feed"}
+
+  # ---------------- L4 公众号（有其他官方渠道的优先用其他渠道）----------------
+  - {id: xinzhiyuan, name: 新智元, group: G3, layer: L4, method: wechat2rss, url: "https://wechat2rss.xlab.app/feed/ede30346413ea70dbef5d485ea5cbb95cca446e7.xml"}
+  - {id: xixiaoyao, name: 夕小瑶科技说, group: G3, layer: L4, method: wechat2rss, url: "https://wechat2rss.xlab.app/feed/a1cd365aa14ed7d64cabfc8aa086da40ecaba34d.xml"}
+  - {id: datawhale, name: Datawhale, group: G3, layer: L4, method: wechat2rss, url: "https://wechat2rss.xlab.app/feed/4d620d988cb21cfeefd2263207221f0dc70df9ff.xml"}
+  - {id: jackcui, name: JackCui, group: G3, layer: L4, method: rss, url: "https://cuijiahua.com/feed/", note: 博主个人博客}
+  - {id: xueshutoutiao, name: 学术头条, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: lirumor, name: 李rumor, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: founderpark, name: Founder Park, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: guixingren, name: 硅星人Pro, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: kazike, name: 数字生命卡兹克, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: zfinance, name: Z Finance, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: saibochanxin, name: 赛博禅心, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: aixinxigap, name: AI信息Gap, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: crossing, name: 十字路口Crossing, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: aiyilei, name: AI异类弗兰克, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: daishudi, name: 袋鼠帝AI客栈, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: gongzilong, name: 公子龙, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: afeng, name: 阿枫科技, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: kaer, name: 卡尔的AI沃茨, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: youjidajuzi, name: 有机大橘子, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: canghe, name: 苍何, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: moli, name: 莫理, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: woyin, name: 沃垠AI, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}
+  - {id: aiproduct-ying, name: AI产品阿颖, group: G3, layer: L4, method: none, note: Wechat2RSS 未收录}

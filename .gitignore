@@ -1,0 +1,17 @@
+# 运行数据与密钥一律不进仓库
+.env
+*.env
+!.env.example
+secrets/
+data/
+assets/
+logs/
+backups/
+vendor/*
+!vendor/README.md
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/

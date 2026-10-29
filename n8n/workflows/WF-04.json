@@ -1,0 +1,78 @@
+{
+  "id": "cfWF04card000001",
+  "name": "WF-04 选题卡（活页推送）",
+  "active": false,
+  "nodes": [
+    {
+      "id": "cfWF04card000001-t0",
+      "name": "定时 08:00 / 18:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8,18 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cfWF04card000001-h0",
+      "name": "调用 worker 08:00 / 18:00",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "parameters": {
+        "method": "POST",
+        "url": "http://worker:8000/jobs/card",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Worker-Token",
+              "value": "={{ $env.WORKER_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "定时 08:00 / 18:00": {
+      "main": [
+        [
+          {
+            "node": "调用 worker 08:00 / 18:00",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}
